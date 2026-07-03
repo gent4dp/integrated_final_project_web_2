@@ -1,0 +1,57 @@
+/* Reset basic margin & font agar bersih dan presisi sesuai desain */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f8fafc; /* Warna background abu-abu terang sesuai gambar */
+  color: #1e293b;
+}
+
+.main-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.content-container {
+  flex-grow: 1;
+  margin-left: 260px; /* Memberi ruang agar tidak tertutup oleh sidebar yang di-fixed */
+  padding: 40px;
+  box-sizing: border-box;
+}
+
+/* Header di area konten */
+.content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.dashboard-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.dashboard-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin: 6px 0 0 0;
+}
+
+/* Badge Tanggal */
+.date-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.date-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
