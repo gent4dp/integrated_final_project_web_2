@@ -4,7 +4,7 @@ import LayoutMhs from '../components/LayoutMhs';
 const faqs = [
   {
     question: 'Bagaimana cara mengirim laporan?',
-    answer: 'Masuk dengan akun UIN Alauddin, pilih tombol Buat Laporan, lalu isi detail lokasi, kategori, dan deskripsi kerusakan.',
+    answer: 'Masuk dengan akun UIN Alauddin, pilih tombol Buat Laporan, lalu isi detail lokasi, fasilitas yang rusak, dan deskripsi kerusakan.',
   },
   {
     question: 'Apakah identitas pelapor terlihat?',

@@ -40,7 +40,7 @@ class ReportCommentController extends Controller
         $report = Report::findOrFail($reportId);
 
         $request->validate([
-            'komentar' => 'required|string|min:5',
+            'komentar' => 'required|string|min:1|max:2000',
             'parent_comment_id' => 'nullable|exists:report_comments,id',
         ]);
 

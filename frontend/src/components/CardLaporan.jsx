@@ -1,14 +1,5 @@
 import React from 'react';
-import { ThumbsUp, MessageCircle, MapPin, AlertTriangle } from 'lucide-react';
-
-const KATEGORI_ICON = {
-  ac: '❄️',
-  proyektor: '📽️',
-  toilet: '🚽',
-  wifi: '📶',
-  lampu: '💡',
-  lainnya: '🔧',
-};
+import { ThumbsUp, MessageCircle, MapPin, AlertTriangle, Wrench } from 'lucide-react';
 
 const PRIORITAS_CONFIG = {
   rendah: { label: 'Rendah', cls: 'bg-slate-100 text-slate-600' },
@@ -44,7 +35,6 @@ function CardLaporan({ report, onVote, onOpenDetail, onOpenComment }) {
     label: report.prioritas || '-',
     cls: 'bg-slate-100 text-slate-600',
   };
-  const kategoriIcon = KATEGORI_ICON[report.kategori?.toLowerCase()] ?? '🔧';
   const initials = report.user?.name?.charAt(0)?.toUpperCase() || 'A';
   const timeAgo = report.created_at
     ? (() => {
@@ -100,8 +90,8 @@ function CardLaporan({ report, onVote, onOpenDetail, onOpenComment }) {
               </span>
             )}
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-              <span>{kategoriIcon}</span>
-              <span className="capitalize">{report.kategori || 'lainnya'}</span>
+              <Wrench size={9} className="shrink-0" />
+              <span className="capitalize">{report.kategori || 'Lainnya'}</span>
             </span>
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${prioritas.cls}`}>
               <AlertTriangle size={9} className="shrink-0" />

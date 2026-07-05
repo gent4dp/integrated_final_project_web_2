@@ -23,16 +23,29 @@ const Navbar = () => {
           <span className="text-lg font-semibold text-[#30578f]">KampusFix</span>
         </Link>
 
-        <div className="hidden items-center gap-6 md:flex">
-          {navItems.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`text-sm font-medium ${location.pathname === item.to ? 'text-[#30578f]' : 'text-slate-600 hover:text-[#30578f]'}`}
-            >
-              {item.label}
-            </Link>
-          ))}
+        <div className="hidden items-center gap-1 md:flex">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.to;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`relative px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group ${
+                  isActive
+                    ? 'text-[#30578f]'
+                    : 'text-slate-600 hover:text-[#30578f] hover:bg-[#30578f]/5'
+                }`}
+              >
+                {item.label}
+                {/* Garis bawah aktif */}
+                <span
+                  className={`absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-[#30578f] transition-all duration-300 ${
+                    isActive ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-0 group-hover:opacity-40 group-hover:scale-x-100'
+                  }`}
+                />
+              </Link>
+            );
+          })}
         </div>
 
         <div className="flex items-center gap-3">

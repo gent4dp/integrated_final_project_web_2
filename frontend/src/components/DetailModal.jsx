@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useState } from 'react';
-import { CheckCircle2, Clock3, MessageSquare, MapPin, ShieldAlert } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { AlertCircle, CheckCircle2, Clock3, MessageSquare, MapPin, ShieldAlert, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const statusSteps = ['pending', 'diproses', 'selesai'];
 const stepLabels = {
@@ -10,8 +11,24 @@ const stepLabels = {
 };
 
 function DetailModal({ isOpen, onClose, report, onStatusChange, onCommentSubmit, isAdmin }) {
+  const { user } = useAuth();
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [commentError, setCommentError] = useState('');
+  const [optimisticComments, setOptimisticComments] = useState([]);
+  const commentListRef = useRef(null);
+
+  // Reset optimistic saat report berubah (setelah fetch ulang)
+  useEffect(() => {
+    setOptimisticComments([]);
+  }, [report?.comments]);
+
+  // Auto-scroll ke komentar terbaru
+  useEffect(() => {
+    if (commentListRef.current) {
+      commentListRef.current.scrollTop = commentListRef.current.scrollHeight;
+    }
+  }, [report?.comments, optimisticComments]);
 
   if (!report) return null;
 
@@ -39,7 +56,7 @@ function DetailModal({ isOpen, onClose, report, onStatusChange, onCommentSubmit,
                 <p className="mt-1 text-sm text-slate-500">{report.fakultas} • {report.lokasi_fasilitas}</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-slate-100 px-3 py-2 text-sm text-slate-600">{report.kategori}</span>
+                <span className="rounded-full bg-slate-100 px-3 py-2 text-sm text-slate-600 capitalize">{report.kategori}</span>
                 <span className={`rounded-full px-3 py-2 text-sm font-semibold ${report.status === 'selesai' ? 'bg-emerald-100 text-emerald-700' : report.status === 'diproses' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{report.status}</span>
                 <button onClick={onClose} className="rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:bg-slate-50">Tutup</button>
               </div>
@@ -76,31 +93,112 @@ function DetailModal({ isOpen, onClose, report, onStatusChange, onCommentSubmit,
                     </div>
                     <span className="text-xs text-slate-500">{report.comments?.length || 0} komentar</span>
                   </div>
-                  <div className="mt-4 space-y-3 max-h-72 overflow-y-auto pr-1">
-                    {report.comments?.length ? report.comments.map((comment) => (
-                      <div key={comment.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-800">
-                          <span>{comment.user?.name || 'Pengguna'}</span>
-                          <span className="text-xs text-slate-500">{new Date(comment.created_at).toLocaleDateString('id-ID')}</span>
+                  <div ref={commentListRef} className="mt-4 space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {[...(report.comments || []), ...optimisticComments].length ? (
+                      [...(report.comments || []), ...optimisticComments].map((comment) => (
+                        <div
+                          key={comment.id}
+                          className={`rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-opacity ${comment._optimistic ? 'opacity-60' : 'opacity-100'}`}
+                        >
+                          <div className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-800">
+                            <span>
+                              {comment.user?.name || 'Pengguna'}
+                              {comment._optimistic && (
+                                <span className="ml-1.5 text-[10px] font-normal text-slate-400">mengirim...</span>
+                              )}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {new Date(comment.created_at).toLocaleDateString('id-ID')}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm text-slate-600 leading-6">{comment.komentar}</p>
                         </div>
-                        <p className="mt-2 text-sm text-slate-600 leading-6">{comment.komentar}</p>
-                      </div>
-                    )) : <p className="text-sm text-slate-500">Belum ada komentar.</p>}
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-500">Belum ada komentar.</p>
+                    )}
                   </div>
+                  <AnimatePresence>
+                    {commentError && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden mt-3"
+                      >
+                        <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-xs text-rose-700">
+                          <AlertCircle size={14} className="shrink-0" />
+                          <span>{commentError}</span>
+                          <button onClick={() => setCommentError('')} className="ml-auto text-rose-400 hover:text-rose-600">
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   <form onSubmit={async (e) => {
                     e.preventDefault();
-                    if (!commentText.trim() || isSubmitting) return;
+                    const text = commentText.trim();
+                    if (!text || isSubmitting) return;
+                    setCommentError('');
+                    setCommentText('');
                     setIsSubmitting(true);
+
+                    // Optimistic update
+                    const tempId = `temp_${Date.now()}`;
+                    setOptimisticComments((prev) => [...prev, {
+                      id: tempId,
+                      komentar: text,
+                      created_at: new Date().toISOString(),
+                      user: { name: user?.name || 'Kamu', id: user?.id },
+                      _optimistic: true,
+                    }]);
+
                     try {
-                      await onCommentSubmit?.(report.id, commentText);
-                      setCommentText('');
+                      await onCommentSubmit?.(report.id, text);
+                      setOptimisticComments((prev) => prev.filter((c) => c.id !== tempId));
+                    } catch (err) {
+                      setOptimisticComments((prev) => prev.filter((c) => c.id !== tempId));
+                      setCommentText(text);
+                      const status = err?.response?.status;
+                      if (status === 429) {
+                        setCommentError('Terlalu cepat mengirim komentar. Tunggu sebentar lalu coba lagi.');
+                      } else if (status === 422) {
+                        const msgs = err?.response?.data?.errors
+                          ? Object.values(err.response.data.errors).flat().join(' ')
+                          : err?.response?.data?.message;
+                        setCommentError(msgs || 'Komentar tidak valid.');
+                      } else {
+                        setCommentError('Gagal mengirim komentar. Silakan coba lagi.');
+                      }
                     } finally {
                       setIsSubmitting(false);
                     }
                   }} className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
                     <label className="text-sm font-semibold text-slate-700">Tambahkan komentar</label>
-                    <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} rows={3} className="mt-3 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none focus:border-[#30578f]" placeholder="Tulis komentar Anda di sini..." disabled={isSubmitting} />
-                    <button type="submit" disabled={isSubmitting || !commentText.trim()} className="mt-3 rounded-2xl bg-[#30578f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#274a77] disabled:opacity-50 disabled:cursor-not-allowed">{isSubmitting ? 'Mengirim...' : 'Kirim komentar'}</button>
+                    <textarea
+                      value={commentText}
+                      onChange={(e) => {
+                        setCommentText(e.target.value);
+                        if (commentError) setCommentError('');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          e.target.form.requestSubmit();
+                        }
+                      }}
+                      rows={3}
+                      className="mt-3 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none focus:border-[#30578f] disabled:opacity-60"
+                      placeholder="Tulis komentar Anda di sini... (Enter untuk kirim)"
+                      disabled={isSubmitting}
+                    />
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400">Shift+Enter untuk baris baru</span>
+                      <button type="submit" disabled={isSubmitting || !commentText.trim()} className="rounded-2xl bg-[#30578f] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#274a77] disabled:opacity-50 disabled:cursor-not-allowed">
+                        {isSubmitting ? 'Mengirim...' : 'Kirim komentar'}
+                      </button>
+                    </div>
                   </form>
                 </div>
               </div>

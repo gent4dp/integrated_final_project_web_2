@@ -19,30 +19,40 @@ const NavbarLanding = () => {
         </div>
 
         {/* TENGAH: Menu Navigasi Dinamis */}
-        <div className="hidden md:flex items-center gap-9">
+        <div className="hidden md:flex items-center gap-2">
           
           {/* Tombol Beranda */}
           <button 
             onClick={() => setActiveMenu('beranda')}
-            className={`text-[14px] bg-transparent border-none py-1 relative cursor-pointer transition-colors duration-150 font-sans ${
+            className={`relative text-[14px] bg-transparent border-none px-4 py-2 rounded-lg cursor-pointer transition-all duration-200 font-sans ${
               activeMenu === 'beranda' 
-                ? "font-bold text-[#2b5292] after:content-[''] after:absolute after:w-full after:h-[2px] after:bg-[#2b5292] after:bottom-[-20px] after:left-0" 
-                : 'font-medium text-[#64748b] hover:text-[#2b5292]'
+                ? 'font-bold text-[#2b5292] bg-[#2b5292]/8' 
+                : 'font-medium text-[#64748b] hover:text-[#2b5292] hover:bg-[#2b5292]/5'
             }`}
           >
             Beranda
+            <span
+              className={`absolute bottom-1 left-4 right-4 h-0.5 rounded-full bg-[#2b5292] transition-all duration-300 origin-center ${
+                activeMenu === 'beranda' ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-0'
+              }`}
+            />
           </button>
 
           {/* Tombol Bantuan */}
           <button 
             onClick={() => setActiveMenu('bantuan')}
-            className={`text-[14px] bg-transparent border-none py-1 relative cursor-pointer transition-colors duration-150 font-sans ${
+            className={`relative text-[14px] bg-transparent border-none px-4 py-2 rounded-lg cursor-pointer transition-all duration-200 font-sans ${
               activeMenu === 'bantuan' 
-                ? "font-bold text-[#2b5292] after:content-[''] after:absolute after:w-full after:h-[2px] after:bg-[#2b5292] after:bottom-[-20px] after:left-0" 
-                : 'font-medium text-[#64748b] hover:text-[#2b5292]'
+                ? 'font-bold text-[#2b5292] bg-[#2b5292]/8' 
+                : 'font-medium text-[#64748b] hover:text-[#2b5292] hover:bg-[#2b5292]/5'
             }`}
           >
             Bantuan
+            <span
+              className={`absolute bottom-1 left-4 right-4 h-0.5 rounded-full bg-[#2b5292] transition-all duration-300 origin-center ${
+                activeMenu === 'bantuan' ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-0'
+              }`}
+            />
           </button>
 
         </div>

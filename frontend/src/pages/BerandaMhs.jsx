@@ -8,13 +8,12 @@ import DetailModal from '../components/DetailModal';
 import CommentModal from '../components/CommentModal';
 import LayoutMhs from '../components/LayoutMhs';
 
-const categories = ['all', 'ac', 'proyektor', 'toilet', 'wifi', 'lampu', 'lainnya'];
 
 function BerandaMhs() {
   const { user } = useAuth();
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState({ total: 0, selesai: 0, diproses: 0, pending: 0, resolveRate: 0 });
-  const [filter, setFilter] = useState({ q: '', status: 'all', kategori: 'all', sort: 'terbaru' });
+  const [filter, setFilter] = useState({ q: '', status: 'all', sort: 'terbaru' });
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedReportId, setSelectedReportId] = useState(null);
@@ -26,7 +25,7 @@ function BerandaMhs() {
   const [submitError, setSubmitError] = useState(null);
   const [form, setForm] = useState({
     judul_laporan: '',
-    kategori: 'lainnya',
+    kategori: '',
     prioritas: 'sedang',
     fakultas: '',
     lokasi_fasilitas: '',
@@ -43,7 +42,6 @@ function BerandaMhs() {
         getReports({
           q: filter.q,
           status: filter.status === 'all' ? '' : filter.status,
-          kategori: filter.kategori === 'all' ? '' : filter.kategori,
           sort: filter.sort,
         }),
         getStats(),
@@ -68,7 +66,7 @@ function BerandaMhs() {
 
   useEffect(() => {
     fetchReports();
-  }, [filter.q, filter.status, filter.kategori, filter.sort]);
+  }, [filter.q, filter.status, filter.sort]);
 
   useEffect(() => {
     if (!selectedReportId) return undefined;
@@ -98,7 +96,7 @@ function BerandaMhs() {
       await createReport(payload);
       setForm({
         judul_laporan: '',
-        kategori: 'lainnya',
+        kategori: '',
         prioritas: 'sedang',
         fakultas: '',
         lokasi_fasilitas: '',
@@ -145,13 +143,12 @@ function BerandaMhs() {
   };
 
   const handleCommentSubmit = async (reportId, komentar) => {
-    try {
-      await postComment(reportId, { komentar });
-      await fetchSelectedReport(reportId);
-    } catch (error) {
-      console.error('Gagal mengirim komentar:', error);
-      throw error; // re-throw agar isSubmitting di DetailModal bisa reset
-    }
+    // Kirim komentar, lalu refresh report (untuk update counter & data)
+    await postComment(reportId, { komentar });
+    // Refresh report di background — tidak perlu await di sini karena optimistic update sudah handle UI
+    getReport(reportId).then((res) => {
+      if (res?.data) setSelectedReport(res.data);
+    }).catch(() => {});
   };
 
   const openComment = async (reportId) => {
@@ -167,14 +164,12 @@ function BerandaMhs() {
   };
 
   const handleCommentModalSubmit = async (reportId, komentar) => {
-    try {
-      await postComment(reportId, { komentar });
-      const response = await getReport(reportId);
-      setCommentReport(response.data || null);
-    } catch (error) {
-      console.error('Gagal mengirim komentar:', error);
-      throw error; // re-throw agar isSubmitting di CommentModal bisa reset
-    }
+    // Kirim komentar, lalu refresh hanya data komentar di commentReport
+    await postComment(reportId, { komentar });
+    // Refresh ringan — fetch komentar terbaru saja
+    getReport(reportId).then((res) => {
+      if (res?.data) setCommentReport(res.data);
+    }).catch(() => {});
   };
 
   return (
@@ -233,15 +228,7 @@ function BerandaMhs() {
             </label>
             {/* Filter selects */}
             <div className="flex flex-wrap gap-2">
-              <select
-                value={filter.kategori}
-                onChange={(event) => setFilter({ ...filter, kategori: event.target.value })}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 outline-none transition hover:border-slate-300"
-              >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>{cat === 'all' ? '📦 Kategori' : `${cat.charAt(0).toUpperCase() + cat.slice(1)}`}</option>
-                ))}
-              </select>
+
               <select
                 value={filter.status}
                 onChange={(event) => setFilter({ ...filter, status: event.target.value })}
@@ -283,23 +270,59 @@ function BerandaMhs() {
                 <button onClick={() => setIsModalOpen(false)} className="rounded-full border px-3 py-2 text-sm">Tutup</button>
               </div>
               <form onSubmit={handleSubmit} className="mt-6 grid gap-4 md:grid-cols-2">
-                <input required value={form.judul_laporan} onChange={(event) => setForm({ ...form, judul_laporan: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Judul laporan" />
-                <select value={form.kategori} onChange={(event) => setForm({ ...form, kategori: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                  <option value="ac">AC</option>
-                  <option value="proyektor">Proyektor</option>
-                  <option value="toilet">Toilet</option>
-                  <option value="wifi">Wi-Fi</option>
-                  <option value="lampu">Lampu</option>
-                  <option value="lainnya">Lainnya</option>
-                </select>
-                <select value={form.prioritas} onChange={(event) => setForm({ ...form, prioritas: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                  <option value="rendah">Rendah</option>
-                  <option value="sedang">Sedang</option>
-                  <option value="darurat">Darurat</option>
-                </select>
-                <input required value={form.fakultas} onChange={(event) => setForm({ ...form, fakultas: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Fakultas / unit" />
-                <input required value={form.lokasi_fasilitas} onChange={(event) => setForm({ ...form, lokasi_fasilitas: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Lokasi fasilitas" />
-                <textarea required value={form.deskripsi_kerusakan} onChange={(event) => setForm({ ...form, deskripsi_kerusakan: event.target.value })} className="md:col-span-2 min-h-28 rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Deskripsi kerusakan" />
+                {/* Judul Laporan */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-600">Judul Laporan <span className="text-rose-500">*</span></label>
+                  <input required value={form.judul_laporan} onChange={(event) => setForm({ ...form, judul_laporan: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#30578f] transition-colors" placeholder="Contoh: AC ruangan tidak dingin" />
+                </div>
+
+                {/* Kategori */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-600">Fasilitas / Benda yang Rusak <span className="text-rose-500">*</span></label>
+                  <input required value={form.kategori} onChange={(event) => setForm({ ...form, kategori: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#30578f] transition-colors" placeholder="Contoh: AC, Kursi Kuliah, Proyektor, Pintu" />
+                </div>
+
+                {/* Prioritas */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-600">Tingkat Urgensi <span className="text-rose-500">*</span></label>
+                  <select required value={form.prioritas} onChange={(event) => setForm({ ...form, prioritas: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#30578f] transition-colors">
+                    <option value="rendah">Rendah</option>
+                    <option value="sedang">Sedang</option>
+                    <option value="darurat">Darurat</option>
+                  </select>
+                </div>
+
+                {/* Fakultas / Unit */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-600">Fakultas / Unit <span className="text-rose-500">*</span></label>
+                  <select required value={form.fakultas} onChange={(event) => setForm({ ...form, fakultas: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#30578f] transition-colors">
+                    <option value="">-- Pilih Fakultas / Unit --</option>
+                    <option value="Fakultas Syariah dan Hukum">Fakultas Syariah dan Hukum</option>
+                    <option value="Fakultas Tarbiyah dan Keguruan">Fakultas Tarbiyah dan Keguruan</option>
+                    <option value="Fakultas Ushuluddin dan Filsafat">Fakultas Ushuluddin dan Filsafat</option>
+                    <option value="Fakultas Adab dan Humaniora">Fakultas Adab dan Humaniora</option>
+                    <option value="Fakultas Dakwah dan Komunikasi">Fakultas Dakwah dan Komunikasi</option>
+                    <option value="Fakultas Sains dan Teknologi">Fakultas Sains dan Teknologi</option>
+                    <option value="Fakultas Kedokteran dan Ilmu Kesehatan">Fakultas Kedokteran dan Ilmu Kesehatan</option>
+                    <option value="Fakultas Ekonomi dan Bisnis Islam">Fakultas Ekonomi dan Bisnis Islam</option>
+                    <option value="Pascasarjana">Pascasarjana</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </div>
+
+                {/* Lokasi Spesifik */}
+                <div className="md:col-span-2 flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-600">Lokasi Spesifik Fasilitas <span className="text-rose-500">*</span></label>
+                  <input required value={form.lokasi_fasilitas} onChange={(event) => setForm({ ...form, lokasi_fasilitas: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#30578f] transition-colors" placeholder="Contoh: Gedung A, Lantai 2, Ruang 201" />
+                </div>
+
+                {/* Deskripsi */}
+                <div className="md:col-span-2 flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-600">Deskripsi Kerusakan <span className="text-rose-500">*</span></label>
+                  <textarea required value={form.deskripsi_kerusakan} onChange={(event) => setForm({ ...form, deskripsi_kerusakan: event.target.value })} className="min-h-28 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#30578f] transition-colors" placeholder="Jelaskan kondisi kerusakan secara detail..." />
+                </div>
+
+                {/* Foto Bukti */}
                 <label className="md:col-span-2 flex flex-col gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-500">
                   <span className="font-semibold text-slate-700">Unggah foto bukti (opsional)</span>
                   <input type="file" accept="image/*" onChange={(event) => setForm({ ...form, foto_bukti: event.target.files?.[0] || null })} />

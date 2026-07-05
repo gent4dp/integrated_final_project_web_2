@@ -332,7 +332,7 @@ function KelolaLaporan() {
                 <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <th className="px-6 py-3.5">Pelapor</th>
                   <th className="px-4 py-3.5">Lokasi</th>
-                  <th className="px-4 py-3.5">Kategori</th>
+                  <th className="px-4 py-3.5">Fasilitas / Barang</th>
                   <th className="px-4 py-3.5 text-center">Upvotes</th>
                   <th className="px-4 py-3.5 text-center">Status</th>
                   <th className="px-4 py-3.5 text-right">Aksi</th>
@@ -386,9 +386,9 @@ function KelolaLaporan() {
                         </div>
                       </td>
 
-                      {/* Kategori */}
+                      {/* Fasilitas / Barang */}
                       <td className="px-4 py-4">
-                        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 capitalize">
                           {report.kategori || 'Lainnya'}
                         </span>
                       </td>

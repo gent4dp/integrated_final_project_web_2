@@ -49,13 +49,14 @@ class ReportController extends Controller
     {
         $query = Report::query()->with('user');
 
-        // Search by judul atau lokasi atau fakultas
+        // Search by judul atau lokasi atau fakultas atau kategori
         if ($request->filled('q')) {
             $search = $request->q;
             $query->where(function ($q) use ($search) {
                 $q->where('judul_laporan', 'like', "%{$search}%")
                   ->orWhere('lokasi_fasilitas', 'like', "%{$search}%")
-                  ->orWhere('fakultas', 'like', "%{$search}%");
+                  ->orWhere('fakultas', 'like', "%{$search}%")
+                  ->orWhere('kategori', 'like', "%{$search}%");
             });
         }
 

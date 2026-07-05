@@ -33,7 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('{reportId}')->group(function () {
             Route::post('/votes', [ReportVoteController::class, 'toggleVote']);
             Route::get('/comments', [ReportCommentController::class, 'index']);
-            Route::post('/comments', [ReportCommentController::class, 'store']);
+            Route::post('/comments', [ReportCommentController::class, 'store'])->middleware('throttle:comments');
         });
 
         Route::middleware('checkRole:admin')->group(function () {

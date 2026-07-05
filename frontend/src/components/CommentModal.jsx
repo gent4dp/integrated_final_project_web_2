@@ -1,20 +1,72 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useState } from 'react';
-import { MessageCircle, Send, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { AlertCircle, MessageCircle, Send, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 function CommentModal({ isOpen, onClose, report, onCommentSubmit }) {
+  const { user } = useAuth();
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  // Local optimistic comments layer
+  const [optimisticComments, setOptimisticComments] = useState([]);
+  const listRef = useRef(null);
+
+  // Sync optimistic list when real comments change from parent
+  useEffect(() => {
+    setOptimisticComments([]);
+  }, [report?.comments]);
+
+  // Auto-scroll to bottom when new comment added
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [report?.comments, optimisticComments]);
 
   if (!report) return null;
 
+  const allComments = [...(report.comments || []), ...optimisticComments];
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
+    const text = commentText.trim();
+    if (!text || isSubmitting) return;
+
+    setErrorMsg('');
+    setCommentText('');
     setIsSubmitting(true);
+
+    // Optimistic update — tampilkan komentar langsung
+    const tempId = `temp_${Date.now()}`;
+    const tempComment = {
+      id: tempId,
+      komentar: text,
+      created_at: new Date().toISOString(),
+      user: { name: user?.name || 'Kamu', id: user?.id },
+      _optimistic: true,
+    };
+    setOptimisticComments((prev) => [...prev, tempComment]);
+
     try {
-      await onCommentSubmit?.(report.id, commentText);
-      setCommentText('');
+      await onCommentSubmit?.(report.id, text);
+      // Komentar berhasil — hapus optimistic (parent akan refresh dengan data asli)
+      setOptimisticComments((prev) => prev.filter((c) => c.id !== tempId));
+    } catch (err) {
+      // Gagal — hapus optimistic dan kembalikan teks ke input
+      setOptimisticComments((prev) => prev.filter((c) => c.id !== tempId));
+      setCommentText(text);
+      const status = err?.response?.status;
+      if (status === 429) {
+        setErrorMsg('Terlalu cepat mengirim komentar. Tunggu sebentar lalu coba lagi.');
+      } else if (status === 422) {
+        const messages = err?.response?.data?.errors
+          ? Object.values(err.response.data.errors).flat().join(' ')
+          : err?.response?.data?.message;
+        setErrorMsg(messages || 'Komentar tidak valid.');
+      } else {
+        setErrorMsg('Gagal mengirim komentar. Silakan coba lagi.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -55,9 +107,9 @@ function CommentModal({ isOpen, onClose, report, onCommentSubmit }) {
             </div>
 
             {/* Comment list */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-              {report.comments?.length ? (
-                report.comments.map((comment) => {
+            <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {allComments.length ? (
+                allComments.map((comment) => {
                   const initials = comment.user?.name?.charAt(0)?.toUpperCase() || '?';
                   const date = comment.created_at
                     ? new Date(comment.created_at).toLocaleDateString('id-ID', {
@@ -65,7 +117,10 @@ function CommentModal({ isOpen, onClose, report, onCommentSubmit }) {
                       })
                     : '';
                   return (
-                    <div key={comment.id} className="flex gap-3">
+                    <div
+                      key={comment.id}
+                      className={`flex gap-3 transition-opacity duration-300 ${comment._optimistic ? 'opacity-60' : 'opacity-100'}`}
+                    >
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#30578f] to-[#1e3a5f] text-white text-xs font-bold">
                         {initials}
                       </div>
@@ -73,6 +128,9 @@ function CommentModal({ isOpen, onClose, report, onCommentSubmit }) {
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-semibold text-slate-700">
                             {comment.user?.name || 'Pengguna'}
+                            {comment._optimistic && (
+                              <span className="ml-1.5 text-[10px] font-normal text-slate-400">mengirim...</span>
+                            )}
                           </span>
                           <span className="text-[10px] text-slate-400">{date}</span>
                         </div>
@@ -92,12 +150,38 @@ function CommentModal({ isOpen, onClose, report, onCommentSubmit }) {
               )}
             </div>
 
+            {/* Error message */}
+            <AnimatePresence>
+              {errorMsg && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-center gap-2 mx-5 mb-2 rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-xs text-rose-700">
+                    <AlertCircle size={14} className="shrink-0" />
+                    <span>{errorMsg}</span>
+                    <button
+                      onClick={() => setErrorMsg('')}
+                      className="ml-auto text-rose-400 hover:text-rose-600"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Input form */}
             <form onSubmit={handleSubmit} className="border-t border-slate-100 px-5 py-4">
               <div className="flex items-end gap-3">
                 <textarea
                   value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
+                  onChange={(e) => {
+                    setCommentText(e.target.value);
+                    if (errorMsg) setErrorMsg('');
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -106,7 +190,8 @@ function CommentModal({ isOpen, onClose, report, onCommentSubmit }) {
                   }}
                   rows={2}
                   placeholder="Tulis komentar... (Enter untuk kirim)"
-                  className="flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-[#30578f] focus:bg-white placeholder:text-slate-400"
+                  disabled={isSubmitting}
+                  className="flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-[#30578f] focus:bg-white placeholder:text-slate-400 disabled:opacity-60"
                 />
                 <button
                   type="submit"
@@ -116,6 +201,7 @@ function CommentModal({ isOpen, onClose, report, onCommentSubmit }) {
                   <Send size={15} />
                 </button>
               </div>
+              <p className="mt-2 text-[10px] text-slate-400">Shift+Enter untuk baris baru</p>
             </form>
           </motion.div>
         </motion.div>
