@@ -29,6 +29,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [ReportController::class, 'index']);
         Route::get('/{id}', [ReportController::class, 'show']);
         Route::post('/', [ReportController::class, 'store']);
+        Route::put('/{id}', [ReportController::class, 'update']);
 
         Route::prefix('{reportId}')->group(function () {
             Route::post('/votes', [ReportVoteController::class, 'toggleVote']);

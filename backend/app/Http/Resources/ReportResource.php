@@ -28,7 +28,11 @@ class ReportResource extends JsonResource
             'fakultas'            => $this->fakultas,
             'lokasi_fasilitas'    => $this->lokasi_fasilitas,
             'deskripsi_kerusakan' => $this->deskripsi_kerusakan,
-            'foto_bukti'          => $this->foto_bukti ? asset('storage/' . $this->foto_bukti) : null,
+            'foto_bukti'          => $this->foto_bukti 
+                ? (is_array(json_decode($this->foto_bukti, true)) 
+                    ? array_map(fn($path) => asset('storage/' . $path), json_decode($this->foto_bukti, true)) 
+                    : [asset('storage/' . $this->foto_bukti)])
+                : [],
             'status'              => $this->status,
             'catatan_admin'       => $this->catatan_admin,
             'user'                => [

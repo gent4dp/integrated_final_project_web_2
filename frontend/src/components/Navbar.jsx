@@ -1,10 +1,11 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ShieldAlert, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const navItems = [
@@ -13,10 +14,15 @@ const Navbar = () => {
     { label: 'Bantuan', to: '/bantuan' },
   ];
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
   return (
     <nav className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 lg:px-8">
-        <Link to="/beranda" className="flex items-center gap-2.5">
+        <Link to="/" className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#30578f] text-white">
             <ShieldAlert size={18} />
           </div>
@@ -51,7 +57,7 @@ const Navbar = () => {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2">
             <span className="text-sm font-semibold text-slate-700">{user?.name?.split(' ')[0] || 'User'}</span>
-            <button onClick={logout} className="text-slate-500 hover:text-rose-600">
+            <button onClick={handleLogout} className="text-slate-500 hover:text-rose-600 transition-colors">
               <LogOut size={16} />
             </button>
           </div>

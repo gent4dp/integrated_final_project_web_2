@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Search,
@@ -16,9 +16,11 @@ import {
   X,
   Archive,
   Trash2,
+  MessageCircle,
 } from 'lucide-react';
 import NavbarAdmin from '../../components/NavbarAdmin';
-import { getReports, updateStatus, archiveReport } from '../../services/api';
+import DetailModal from '../../components/DetailModal';
+import { getReports, updateStatus, archiveReport, getReport, postComment } from '../../services/api';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -43,6 +45,13 @@ const STATUS_META = {
     text: 'text-emerald-700',
     ring: 'ring-emerald-200',
     dot: 'bg-emerald-500',
+  },
+  ditolak: {
+    label: 'Ditolak',
+    bg: 'bg-rose-50',
+    text: 'text-rose-700',
+    ring: 'ring-rose-200',
+    dot: 'bg-rose-500',
   },
 };
 
@@ -126,7 +135,11 @@ function ConfirmModal({ isOpen, report, targetStatus, onConfirm, onCancel }) {
               </button>
               <button
                 onClick={onConfirm}
-                className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition ${NEXT_COLOR[report.status] || 'bg-[#30578f] text-white'}`}
+                className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                  targetStatus === 'ditolak'
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm shadow-rose-600/10'
+                    : NEXT_COLOR[report.status] || 'bg-[#30578f] text-white'
+                }`}
               >
                 Ya, Ubah Status
               </button>
@@ -205,12 +218,23 @@ function KelolaLaporan() {
   const [reports, setReports]       = useState([]);
   const [filter, setFilter]         = useState('all');
   const [search, setSearch]         = useState('');
+  const [sortBy, setSortBy]         = useState('terbaru'); // 'terbaru', 'upvotes', 'urgensi'
   const [page, setPage]             = useState(1);
   const [loading, setLoading]       = useState(true);
   const [confirmTarget, setConfirmTarget] = useState(null); // { report, targetStatus }
   const [detailReport, setDetailReport]   = useState(null);
   const [archiveTarget, setArchiveTarget] = useState(null); // report to archive
   const [archiving, setArchiving]         = useState(false);
+
+  const openDetail = async (report) => {
+    try {
+      const res = await getReport(report.id);
+      setDetailReport(res.data || report);
+    } catch (err) {
+      console.error('Gagal memuat detail aduan:', err);
+      setDetailReport(report);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -220,21 +244,41 @@ function KelolaLaporan() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = reports.filter((r) => {
-    const matchStatus = filter === 'all' || r.status === filter;
-    const q = search.toLowerCase();
-    const matchSearch =
-      !q ||
-      r.judul_laporan?.toLowerCase().includes(q) ||
-      r.lokasi_fasilitas?.toLowerCase().includes(q) ||
-      r.user?.name?.toLowerCase().includes(q);
-    return matchStatus && matchSearch;
-  });
+  const sortedAndFiltered = useMemo(() => {
+    const list = reports.filter((r) => {
+      const matchStatus = filter === 'all' || r.status === filter;
+      const q = search.toLowerCase();
+      const matchSearch =
+        !q ||
+        r.judul_laporan?.toLowerCase().includes(q) ||
+        r.lokasi_fasilitas?.toLowerCase().includes(q) ||
+        r.user?.name?.toLowerCase().includes(q);
+      return matchStatus && matchSearch;
+    });
+
+    return [...list].sort((a, b) => {
+      if (sortBy === 'upvotes') {
+        const votesA = a.votes_count || a.votes || 0;
+        const votesB = b.votes_count || b.votes || 0;
+        return votesB - votesA;
+      }
+      if (sortBy === 'urgensi') {
+        const priorityWeight = { darurat: 3, sedang: 2, rendah: 1 };
+        const weightA = priorityWeight[a.prioritas?.toLowerCase()] || 0;
+        const weightB = priorityWeight[b.prioritas?.toLowerCase()] || 0;
+        return weightB - weightA;
+      }
+      // Default: terbaru
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+  }, [reports, filter, search, sortBy]);
+
+  const filtered = sortedAndFiltered;
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  useEffect(() => { setPage(1); }, [filter, search]);
+  useEffect(() => { setPage(1); }, [filter, search, sortBy]);
 
   const requestStatusChange = (report) => {
     const next = NEXT_STATUS[report.status];
@@ -284,8 +328,8 @@ function KelolaLaporan() {
         </div>
 
         {/* Stats strip */}
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {['all', 'pending', 'diproses', 'selesai'].map((s) => {
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {['all', 'pending', 'diproses', 'selesai', 'ditolak'].map((s) => {
             const count = s === 'all' ? reports.length : reports.filter((r) => r.status === s).length;
             return (
               <button
@@ -310,14 +354,25 @@ function KelolaLaporan() {
         <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
           {/* Toolbar */}
           <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full sm:max-w-xs">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Cari laporan, pelapor, lokasi…"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-[#30578f] focus:bg-white focus:ring-2 focus:ring-[#30578f]/10 transition"
-              />
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:max-w-xs">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Cari laporan, pelapor, lokasi…"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-[#30578f] focus:bg-white focus:ring-2 focus:ring-[#30578f]/10 transition"
+                />
+              </div>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 outline-none hover:border-slate-300 transition cursor-pointer"
+              >
+                <option value="terbaru">Urutkan: Terbaru</option>
+                <option value="upvotes">Urutkan: Upvote Terbanyak</option>
+                <option value="urgensi">Urutkan: Tingkat Urgensi</option>
+              </select>
             </div>
             <div className="flex items-center gap-2">
               <Filter size={14} className="text-slate-400" />
@@ -334,8 +389,9 @@ function KelolaLaporan() {
                   <th className="px-4 py-3.5">Lokasi</th>
                   <th className="px-4 py-3.5">Fasilitas / Barang</th>
                   <th className="px-4 py-3.5 text-center">Upvotes</th>
+                  <th className="px-4 py-3.5 text-center">Comments</th>
                   <th className="px-4 py-3.5 text-center">Status</th>
-                  <th className="px-4 py-3.5 text-right">Aksi</th>
+                  <th className="px-4 py-3.5 text-center">Lihat</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -397,8 +453,20 @@ function KelolaLaporan() {
                       <td className="px-4 py-4 text-center">
                         <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600">
                           <ThumbsUp size={12} />
-                          {report.vote_count ?? report.votes ?? 0}
+                          {report.votes_count ?? 0}
                         </div>
+                      </td>
+
+                      {/* Comments */}
+                      <td className="px-4 py-4 text-center">
+                        <button
+                          onClick={() => openDetail(report)}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-650 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition cursor-pointer"
+                          title="Lihat diskusi & komentar"
+                        >
+                          <MessageCircle size={12} className="text-slate-400" />
+                          {report.comments_count ?? 0}
+                        </button>
                       </td>
 
                       {/* Status */}
@@ -406,37 +474,16 @@ function KelolaLaporan() {
                         <StatusBadge status={report.status} />
                       </td>
 
-                      {/* Aksi */}
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-end gap-2">
+                      {/* Lihat */}
+                      <td className="px-4 py-4 text-center">
+                        <div className="flex items-center justify-center">
                           <button
-                            onClick={() => setDetailReport(report)}
-                            className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                            onClick={() => openDetail(report)}
+                            className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold text-[#30578f] bg-white transition hover:bg-blue-50 hover:border-blue-200 cursor-pointer shadow-sm"
                           >
-                            <Eye size={13} />
+                            <Eye size={13} className="text-[#30578f]" />
                             Detail
                           </button>
-
-                          {NEXT_STATUS[report.status] && (
-                            <button
-                              onClick={() => requestStatusChange(report)}
-                              className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold shadow-sm transition ${NEXT_COLOR[report.status]}`}
-                            >
-                              {report.status === 'pending' ? <Loader2 size={13} /> : <CheckCircle2 size={13} />}
-                              {NEXT_LABEL[report.status]}
-                            </button>
-                          )}
-
-                          {report.status === 'selesai' && (
-                            <button
-                              onClick={() => requestArchive(report)}
-                              title="Arsipkan laporan ini"
-                              className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-600 transition hover:bg-amber-100 hover:border-amber-300"
-                            >
-                              <Archive size={13} />
-                              Arsipkan
-                            </button>
-                          )}
                         </div>
                       </td>
                     </motion.tr>
@@ -504,75 +551,40 @@ function KelolaLaporan() {
         onCancel={() => setArchiveTarget(null)}
       />
 
-      {/* Detail Quick-View Modal */}
-      <AnimatePresence>
-        {detailReport && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm"
-            onClick={() => setDetailReport(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.96, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.96, opacity: 0, y: 10 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-              className="w-full max-w-lg rounded-3xl bg-white p-7 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-[#30578f]">Detail Laporan</p>
-                  <h3 className="mt-1 text-lg font-bold text-slate-900">{detailReport.judul_laporan}</h3>
-                </div>
-                <button
-                  onClick={() => setDetailReport(null)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:bg-slate-50"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-4">
-                  <MapPin size={15} className="text-slate-400" />
-                  <span className="text-slate-600">{detailReport.lokasi_fasilitas}</span>
-                </div>
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Deskripsi</p>
-                  <p className="leading-6 text-slate-700">{detailReport.deskripsi_kerusakan}</p>
-                </div>
-                {detailReport.foto_bukti && (
-                  <div className="overflow-hidden rounded-2xl border border-slate-200">
-                    <img src={detailReport.foto_bukti} alt="Bukti" className="max-h-52 w-full object-cover" />
-                  </div>
-                )}
-                <div className="flex items-center justify-between rounded-2xl bg-slate-50 p-4">
-                  <div>
-                    <p className="font-semibold text-slate-800">{detailReport.user?.name}</p>
-                    <p className="text-xs text-slate-500">{detailReport.user?.nim}</p>
-                  </div>
-                  <StatusBadge status={detailReport.status} />
-                </div>
-              </div>
-
-              {NEXT_STATUS[detailReport.status] && (
-                <button
-                  onClick={() => {
-                    setDetailReport(null);
-                    requestStatusChange(detailReport);
-                  }}
-                  className={`mt-5 w-full rounded-2xl py-3 text-sm font-semibold transition ${NEXT_COLOR[detailReport.status]}`}
-                >
-                  {NEXT_LABEL[detailReport.status]}
-                </button>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Reusable Detail Modal (Admin View) */}
+      <DetailModal
+        isOpen={!!detailReport}
+        onClose={() => setDetailReport(null)}
+        report={detailReport}
+        isAdmin={true}
+        onStatusChange={async (id, newStatus) => {
+          try {
+            await updateStatus(id, { status: newStatus });
+            setReports((prev) =>
+              prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
+            );
+            setDetailReport((prev) => (prev ? { ...prev, status: newStatus } : null));
+          } catch (err) {
+            console.error('Gagal memperbarui status:', err);
+          }
+        }}
+        onCommentSubmit={async (id, text) => {
+          try {
+            await postComment(id, { komentar: text });
+            // Ambil data terbaru detail laporan untuk memuat comments array
+            const res = await getReport(id);
+            if (res && res.data) {
+              setReports((prev) =>
+                prev.map((r) => (r.id === id ? res.data : r))
+              );
+              setDetailReport(res.data);
+            }
+          } catch (err) {
+            console.error('Gagal mengirim tanggapan admin:', err);
+            throw err;
+          }
+        }}
+      />
     </div>
   );
 }

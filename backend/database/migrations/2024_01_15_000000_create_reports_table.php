@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('lokasi_fasilitas');
             $table->text('deskripsi_kerusakan');
             $table->string('foto_bukti')->nullable();
-            $table->enum('status', ['pending', 'diproses', 'selesai'])->default('pending');
+            $table->enum('status', ['pending', 'diproses', 'selesai', 'ditolak'])->default('pending');
             $table->timestamps();
             $table->softDeletes();
         });

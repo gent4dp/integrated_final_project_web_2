@@ -45,6 +45,16 @@ export async function updateStatus(reportId, payload) {
   return response.data;
 }
 
+export async function updateReport(reportId, formData) {
+  formData.append('_method', 'PUT');
+  const response = await api.post(`/reports/${reportId}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+}
+
 export async function archiveReport(reportId) {
   const response = await api.delete(`/reports/${reportId}`);
   return response.data;

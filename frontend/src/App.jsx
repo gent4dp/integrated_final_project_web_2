@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import BerandaMhs from './pages/BerandaMhs';
 import RiwayatProfil from './pages/RiwayatProfil';
 import Bantuan from './pages/Bantuan';
+import BuatLaporan from './pages/BuatLaporan';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import KelolaLaporan from './pages/admin/KelolaLaporan';
 
@@ -34,6 +35,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/beranda" element={<ProtectedRoute><BerandaMhs /></ProtectedRoute>} />
+        <Route path="/buat-laporan" element={<ProtectedRoute><BuatLaporan /></ProtectedRoute>} />
         <Route path="/riwayat" element={<ProtectedRoute><RiwayatProfil /></ProtectedRoute>} />
         <Route path="/bantuan" element={<ProtectedRoute><Bantuan /></ProtectedRoute>} />
         <Route path="/admin/dashboard" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />

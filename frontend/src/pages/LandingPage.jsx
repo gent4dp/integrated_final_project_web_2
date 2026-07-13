@@ -2,16 +2,21 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ShieldAlert, Eye, ShieldCheck, TrendingUp, LogIn, MapPin, MonitorCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import NavbarLanding from '../components/NavbarLanding';
 import Footer from '../components/Footer';
 
 const LandingPage = () => {
+  const handleScrollToFitur = (e) => {
+    e.preventDefault();
+    const element = document.getElementById('fitur');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-white font-sans antialiased selection:bg-[#30578f] selection:text-white">
-      <NavbarLanding />
-
-      <main className="flex-grow">
-        <section className="mx-auto grid max-w-7xl gap-12 px-6 py-12 md:grid-cols-2 md:px-12 md:py-20 md:items-center">
+      <main className="flex-grow flex flex-col justify-center">
+        <section className="mx-auto grid max-w-7xl gap-12 px-6 py-12 md:grid-cols-2 md:px-12 md:py-20 md:items-center min-h-[calc(100vh-70px)]">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-sm font-semibold text-[#30578f]">
               <ShieldCheck size={16} /> KampusFix • UIN Alauddin Makassar
@@ -26,7 +31,11 @@ const LandingPage = () => {
               <Link to="/login" className="flex items-center gap-2 rounded-full bg-[#30578f] px-6 py-3 font-semibold text-white shadow-lg shadow-blue-900/10">
                 <LogIn size={18} /> Masuk ke KampusFix
               </Link>
-              <a href="#fitur" className="rounded-full border border-slate-200 bg-white px-6 py-3 font-semibold text-[#30578f]">
+              <a 
+                href="#fitur" 
+                onClick={handleScrollToFitur}
+                className="rounded-full border border-slate-200 bg-white px-6 py-3 font-semibold text-[#30578f] cursor-pointer hover:bg-slate-50 transition"
+              >
                 Pelajari selengkapnya
               </a>
             </div>
@@ -90,18 +99,7 @@ const LandingPage = () => {
           </div>
         </section>
 
-        <section className="relative overflow-hidden bg-[#30578f] py-12 text-white">
-          <div className="mx-auto grid max-w-5xl gap-8 px-6 text-center md:grid-cols-2">
-            <div>
-              <p className="text-4xl font-black tracking-tight md:text-5xl">142</p>
-              <p className="mt-2 text-sm uppercase tracking-[0.25em] text-blue-100">Laporan terselesaikan</p>
-            </div>
-            <div>
-              <p className="text-4xl font-black tracking-tight md:text-5xl">12</p>
-              <p className="mt-2 text-sm uppercase tracking-[0.25em] text-blue-100">Laporan diproses</p>
-            </div>
-          </div>
-        </section>
+
       </main>
 
       <Footer />

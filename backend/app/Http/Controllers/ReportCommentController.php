@@ -60,6 +60,10 @@ class ReportCommentController extends Controller
             'komentar' => $request->komentar,
         ]);
 
+        if ($request->user()->role === 'admin') {
+            $report->update(['catatan_admin' => $request->komentar]);
+        }
+
         $comment->load('user', 'replies.user');
 
         return response()->json([

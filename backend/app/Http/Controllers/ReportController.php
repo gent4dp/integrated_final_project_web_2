@@ -18,7 +18,16 @@ class ReportController extends Controller
             'fakultas'            => 'nullable|string|max:255',
             'lokasi_fasilitas'    => 'required|string|max:255',
             'deskripsi_kerusakan' => 'required|string',
-            'foto_bukti'          => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
+            'foto_bukti'          => 'nullable',
+            'foto_bukti.*'        => 'image|mimes:jpeg,png,jpg,gif|max:5120',
+        ], [
+            'judul_laporan.required' => 'Judul aduan wajib diisi.',
+            'judul_laporan.max' => 'Judul aduan maksimal 255 karakter.',
+            'lokasi_fasilitas.required' => 'Lokasi spesifik wajib diisi.',
+            'deskripsi_kerusakan.required' => 'Deskripsi kerusakan aduan wajib diisi.',
+            'foto_bukti.*.image' => 'File bukti harus berupa gambar.',
+            'foto_bukti.*.mimes' => 'Format foto harus jpeg, png, jpg, atau gif.',
+            'foto_bukti.*.max' => 'Ukuran setiap foto bukti maksimal 5 MB.',
         ]);
 
         $report                      = new Report();
@@ -32,8 +41,17 @@ class ReportController extends Controller
         $report->status              = 'pending';
 
         if ($request->hasFile('foto_bukti')) {
-            $path            = $request->file('foto_bukti')->store('reports', 'public');
-            $report->foto_bukti = $path;
+            $files = $request->file('foto_bukti');
+            if (is_array($files)) {
+                $paths = [];
+                foreach ($files as $file) {
+                    $paths[] = $file->store('reports', 'public');
+                }
+                $report->foto_bukti = json_encode($paths);
+            } else {
+                $path = $files->store('reports', 'public');
+                $report->foto_bukti = json_encode([$path]);
+            }
         }
 
         $report->save();
@@ -67,6 +85,13 @@ class ReportController extends Controller
             if (!$request->boolean('include_selesai') && $request->input('include_selesai') !== 'true') {
                 $query->where('status', '!=', 'selesai');
             }
+        }
+
+        // Ditolak reports are only visible to the author (in my_reports) or admins
+        $user = $request->user();
+        $isAdmin = $user && $user->role === 'admin';
+        if (!$isAdmin && !$request->boolean('my_reports')) {
+            $query->where('status', '!=', 'ditolak');
         }
 
         // Filter by kategori
@@ -119,7 +144,7 @@ class ReportController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $request->validate([
-            'status'        => ['required', Rule::in(['pending', 'diproses', 'selesai'])],
+            'status'        => ['required', Rule::in(['pending', 'diproses', 'selesai', 'ditolak'])],
             'catatan_admin' => 'nullable|string',
         ]);
 
@@ -150,6 +175,74 @@ class ReportController extends Controller
         ]);
     }
 
+    public function update(Request $request, $id)
+    {
+        $report = Report::findOrFail($id);
+
+        // Pastikan hanya pemilik yang bisa mengubah dan statusnya masih pending
+        if ($report->user_id !== $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki akses untuk mengubah laporan ini.'
+            ], 403);
+        }
+
+        if ($report->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Laporan yang sedang diproses atau selesai tidak dapat diubah.'
+            ], 400);
+        }
+
+        $request->validate([
+            'judul_laporan'       => 'required|string|max:255',
+            'kategori'            => 'nullable|string|max:100',
+            'prioritas'           => ['nullable', Rule::in(['rendah', 'sedang', 'darurat'])],
+            'fakultas'            => 'nullable|string|max:255',
+            'lokasi_fasilitas'    => 'required|string|max:255',
+            'deskripsi_kerusakan' => 'required|string',
+            'foto_bukti'          => 'nullable',
+            'foto_bukti.*'        => 'image|mimes:jpeg,png,jpg,gif|max:5120',
+        ], [
+            'judul_laporan.required' => 'Judul aduan wajib diisi.',
+            'judul_laporan.max' => 'Judul aduan maksimal 255 karakter.',
+            'lokasi_fasilitas.required' => 'Lokasi spesifik wajib diisi.',
+            'deskripsi_kerusakan.required' => 'Deskripsi kerusakan aduan wajib diisi.',
+            'foto_bukti.*.image' => 'File bukti harus berupa gambar.',
+            'foto_bukti.*.mimes' => 'Format foto harus jpeg, png, jpg, atau gif.',
+            'foto_bukti.*.max' => 'Ukuran setiap foto bukti maksimal 5 MB.',
+        ]);
+
+        $report->judul_laporan       = $request->judul_laporan;
+        $report->kategori         = $request->kategori ?? 'lainnya';
+        $report->prioritas        = $request->prioritas ?? 'sedang';
+        $report->fakultas         = $request->fakultas;
+        $report->lokasi_fasilitas = $request->lokasi_fasilitas;
+        $report->deskripsi_kerusakan = $request->deskripsi_kerusakan;
+
+        if ($request->hasFile('foto_bukti')) {
+            $files = $request->file('foto_bukti');
+            if (is_array($files)) {
+                $paths = [];
+                foreach ($files as $file) {
+                    $paths[] = $file->store('reports', 'public');
+                }
+                $report->foto_bukti = json_encode($paths);
+            } else {
+                $path = $files->store('reports', 'public');
+                $report->foto_bukti = json_encode([$path]);
+            }
+        }
+
+        $report->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Report updated successfully',
+            'data'    => new ReportResource($report->load('user')),
+        ]);
+    }
+
     public function stats(Request $request)
     {
         // withTrashed agar laporan yg diarsipkan tetap dihitung
@@ -158,16 +251,18 @@ class ReportController extends Controller
         $diproses = Report::withoutTrashed()->where('status', 'diproses')->count();
         $selesai  = Report::withTrashed()->where('status', 'selesai')->count();
         $archived = Report::onlyTrashed()->count();
+        $resolveRate = $total > 0 ? round(($selesai / $total) * 100, 1) : 0;
 
         return response()->json([
             'success' => true,
             'message' => 'Stats retrieved',
             'data'    => [
-                'total'    => $total,
-                'pending'  => $pending,
-                'diproses' => $diproses,
-                'selesai'  => $selesai,
-                'archived' => $archived,
+                'total'        => $total,
+                'pending'      => $pending,
+                'diproses'     => $diproses,
+                'selesai'      => $selesai,
+                'archived'     => $archived,
+                'resolve_rate' => $resolveRate,
             ],
         ]);
     }

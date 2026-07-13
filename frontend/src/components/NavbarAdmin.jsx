@@ -1,23 +1,29 @@
 import { LayoutGrid, ClipboardList, LogOut, ShieldAlert } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 function NavbarAdmin() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
   return (
-    <aside className="flex min-h-screen w-72 flex-col justify-between border-r border-slate-200 bg-white p-6">
+    <aside className="sticky top-0 flex h-screen w-72 flex-col justify-between border-r border-slate-200 bg-white p-6 shrink-0 z-40">
       <div>
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#30578f] text-white">
+        <Link to="/" className="mb-8 flex items-center gap-3 cursor-pointer group">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#30578f] text-white transition group-hover:scale-105">
             <ShieldAlert size={20} />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">KampusFix</h2>
-            <p className="text-sm text-slate-500">Admin Panel</p>
+            <h2 className="text-lg font-semibold text-slate-900 leading-tight">KampusFix</h2>
+            <p className="text-xs text-slate-500">Admin Panel</p>
           </div>
-        </div>
+        </Link>
 
         <nav className="space-y-1">
           {[
@@ -52,9 +58,9 @@ function NavbarAdmin() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-sm font-semibold text-slate-800">{user?.name || 'Admin'}</p>
-        <p className="mt-1 text-xs text-slate-500">{user?.email || 'admin@uin-alauddin.ac.id'}</p>
-        <button onClick={logout} className="mt-4 flex items-center gap-2 text-sm font-semibold text-rose-600">
+        <p className="text-sm font-semibold text-slate-800 truncate">{user?.name || 'Admin'}</p>
+        <p className="mt-1 text-xs text-slate-500 truncate">{user?.email || 'admin@uin-alauddin.ac.id'}</p>
+        <button onClick={handleLogout} className="mt-4 flex items-center gap-2 text-sm font-semibold text-rose-600 hover:text-rose-700 transition-colors">
           <LogOut size={16} /> Logout
         </button>
       </div>

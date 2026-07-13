@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
@@ -35,7 +35,7 @@ const Login = () => {
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#f3f7fb] px-4 py-12 font-sans antialiased">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[440px] rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-[#30578f]">KampusFix</h1>
+          <Link to="/" className="text-3xl font-black text-[#30578f] hover:opacity-85 transition inline-block">KampusFix</Link>
           <p className="mt-2 text-sm text-slate-500">Sistem pelaporan fasilitas kampus terpadu</p>
         </div>
 
